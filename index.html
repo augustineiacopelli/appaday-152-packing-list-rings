@@ -423,6 +423,13 @@ footer a:hover { text-decoration: underline; }
           <button type="button" data-type="infant">Infant</button>
         </div>
       </div>
+      <div class="field" id="tSexWrap">
+        <span id="lSex">Sex</span>
+        <div class="seg" id="tSex" role="group" aria-labelledby="lSex">
+          <button type="button" data-sex="male">Male</button>
+          <button type="button" data-sex="female">Female</button>
+        </div>
+      </div>
       <div class="field">
         <span id="lColor">Color</span>
         <div class="swatches" id="tColors" role="group" aria-labelledby="lColor"></div>
@@ -560,6 +567,7 @@ footer a:hover { text-decoration: underline; }
   var RING_C = 2 * Math.PI * RING_R;
   var COLORS = ['#e0b54a', '#e8825c', '#4fb3c4', '#a397f2', '#7fc46b', '#d66f9a', '#5f9be0', '#c9a27a'];
   var TYPE_LABEL = { adult: 'Adult', child: 'Child', infant: 'Infant' };
+  var SEX_LABEL = { male: 'Male', female: 'Female' };
   var SHARED_COLOR = '#c9bfae';
   var MAX_NIGHTS = 60;
   var MAX_QTY = 99;
@@ -574,7 +582,7 @@ footer a:hover { text-decoration: underline; }
     o = o || {};
     return {
       id: id, name: name, cat: cat, own: own,
-      climates: o.c || [], settings: o.s || [], seasons: o.z || [], types: o.t || [],
+      climates: o.c || [], settings: o.s || [], seasons: o.z || [], types: o.t || [], sexes: o.x || [],
       qty: qty, intl: !!o.i, unit: o.u || ''
     };
   }
@@ -589,7 +597,10 @@ footer a:hover { text-decoration: underline; }
     E('shorts', 'Shorts', 'clothes', 'each', 'perThree', { t: AC, c: ['hot'] }),
     E('dresspants', 'Dress pants', 'clothes', 'each', 'perThree', { t: AD, s: ['business'] }),
     E('blazer', 'Blazer', 'clothes', 'each', 'one', { t: AD, s: ['business'] }),
+    E('ties', 'Ties', 'clothes', 'each', 'one', { t: AD, s: ['business'], x: ['male'] }),
+    E('dress', 'Dress or skirt', 'clothes', 'each', 'one', { t: AD, s: ['business', 'city'], x: ['female'] }),
     E('dressshoes', 'Dress shoes', 'clothes', 'each', 'one', { t: AD, s: ['business'], u: 'pair' }),
+    E('bras', 'Bras', 'clothes', 'each', 'perThree', { t: AD, x: ['female'] }),
     E('pajamas', 'Pajamas', 'clothes', 'each', 'perThree', { t: AC, u: 'sets' }),
     E('walkshoes', 'Walking shoes', 'clothes', 'each', 'one', { t: AC, u: 'pair' }),
     E('swimsuit', 'Swimsuit', 'clothes', 'each', 'one', { t: AC, s: ['beach'] }),
@@ -617,6 +628,10 @@ footer a:hover { text-decoration: underline; }
     E('deodorant', 'Deodorant', 'toiletries', 'each', 'toiletry', { t: AD }),
     E('hairbrush', 'Hairbrush or comb', 'toiletries', 'each', 'one', { t: AC }),
     E('razor', 'Razor', 'toiletries', 'each', 'one', { t: AD }),
+    E('shavecream', 'Shaving cream', 'toiletries', 'each', 'toiletry', { t: AD, x: ['male'] }),
+    E('feminine', 'Feminine care products', 'toiletries', 'each', 'one', { t: AD, x: ['female'] }),
+    E('makeup', 'Makeup bag', 'toiletries', 'each', 'one', { t: AD, x: ['female'] }),
+    E('hairties', 'Hair ties and clips', 'toiletries', 'each', 'one', { t: AC, x: ['female'] }),
     E('meds', 'Personal medications', 'toiletries', 'each', 'one', { t: AD }),
     E('sunscreen', 'Sunscreen', 'toiletries', 'shared', 'toiletry', { s: ['beach', 'outdoors'] }),
     E('aftersun', 'After sun gel', 'toiletries', 'shared', 'toiletry', { s: ['beach'], c: ['hot'] }),
@@ -724,6 +739,7 @@ footer a:hover { text-decoration: underline; }
       }
       var d = defaultState();
       d.profiles = s.profiles.filter(function (p) { return p && typeof p.id === 'string' && typeof p.name === 'string' && TYPE_LABEL[p.type]; });
+      d.profiles.forEach(function (p) { if (!SEX_LABEL[p.sex]) p.sex = ''; });
       var ids = d.profiles.map(function (p) { return p.id; });
       Object.keys(d.trip).forEach(function (k) { if (s.trip[k] !== undefined) d.trip[k] = s.trip[k]; });
       d.trip.travelerIds = Array.isArray(d.trip.travelerIds) ? d.trip.travelerIds.filter(function (id) { return ids.indexOf(id) >= 0; }) : [];
@@ -753,6 +769,7 @@ footer a:hover { text-decoration: underline; }
   var activeTab = !state.profiles.length ? 'travelers' : (state.items.length ? 'pack' : 'trip');
   var editingId = null;
   var formType = 'adult';
+  var formSex = '';
   var formColor = null;
   var ringEls = {};
   var firstRingPaint = true;
@@ -828,7 +845,9 @@ footer a:hover { text-decoration: underline; }
     var out = [];
     CATALOG.forEach(function (e) {
       if (!matches(e, state.trip, season)) return;
-      var fits = travelers.filter(function (p) { return !e.types.length || e.types.indexOf(p.type) >= 0; });
+      var fits = travelers.filter(function (p) {
+        return (!e.types.length || e.types.indexOf(p.type) >= 0) && (!e.sexes.length || e.sexes.indexOf(p.sex) >= 0);
+      });
       if (!fits.length) return;
       var q = qtyFor(e.qty, tl.nights, tl.days);
       var unit = q.unit || e.unit;
@@ -938,7 +957,7 @@ footer a:hover { text-decoration: underline; }
         h('span', { class: 'avatar', style: 'background:' + p.color, 'aria-hidden': 'true', text: initial(p.name) }),
         h('div', { class: 'person-main' }, [
           h('span', { class: 'person-name', text: p.name }),
-          h('span', { class: 'person-meta', text: TYPE_LABEL[p.type] + (onTrip ? ' \u00b7 on this trip' : '') })
+          h('span', { class: 'person-meta', text: TYPE_LABEL[p.type] + (SEX_LABEL[p.sex] ? ' \u00b7 ' + SEX_LABEL[p.sex] : '') + (onTrip ? ' \u00b7 on this trip' : '') })
         ]),
         h('button', { type: 'button', class: 'icon-btn', 'data-act': 'edit', 'aria-label': 'Edit ' + p.name }, [icon('edit')]),
         h('button', { type: 'button', class: 'icon-btn danger', 'data-act': 'delete', 'aria-label': 'Delete ' + p.name }, [icon('trash')])
@@ -947,6 +966,9 @@ footer a:hover { text-decoration: underline; }
     if (!formColor) formColor = nextColor();
     Array.prototype.forEach.call($('tType').querySelectorAll('button'), function (b) {
       b.setAttribute('aria-pressed', String(b.getAttribute('data-type') === formType));
+    });
+    Array.prototype.forEach.call($('tSex').querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-sex') === formSex));
     });
     Array.prototype.forEach.call($('tColors').querySelectorAll('button'), function (b) {
       b.setAttribute('aria-pressed', String(b.getAttribute('data-color') === formColor));
@@ -1246,6 +1268,7 @@ footer a:hover { text-decoration: underline; }
   function resetForm() {
     editingId = null;
     formType = 'adult';
+    formSex = '';
     formColor = null;
     $('tName').value = '';
     $('tErr').textContent = '';
@@ -1284,6 +1307,13 @@ footer a:hover { text-decoration: underline; }
     formType = b.getAttribute('data-type');
     renderRoster();
   });
+  $('tSex').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-sex]');
+    if (!b) return;
+    formSex = b.getAttribute('data-sex');
+    $('tErr').textContent = '';
+    renderRoster();
+  });
   $('roster').addEventListener('click', function (e) {
     var b = e.target.closest('[data-act]');
     if (!b) return;
@@ -1294,6 +1324,7 @@ footer a:hover { text-decoration: underline; }
     if (b.getAttribute('data-act') === 'edit') {
       editingId = p.id;
       formType = p.type;
+      formSex = p.sex || '';
       formColor = p.color;
       $('tName').value = p.name;
       $('tErr').textContent = '';
@@ -1308,11 +1339,12 @@ footer a:hover { text-decoration: underline; }
     e.preventDefault();
     var name = $('tName').value.trim();
     if (!name) { $('tErr').textContent = 'Enter a name for this traveler.'; $('tName').focus(); return; }
+    if (!formSex) { $('tErr').textContent = 'Choose male or female so the list fits this traveler.'; $('tSex').querySelector('button').focus(); return; }
     if (editingId) {
       var p = findProfile(editingId);
-      if (p) { p.name = name; p.type = formType; p.color = formColor || p.color; }
+      if (p) { p.name = name; p.type = formType; p.sex = formSex; p.color = formColor || p.color; }
     } else {
-      var np = { id: uid(), name: name, type: formType, color: formColor || nextColor() };
+      var np = { id: uid(), name: name, type: formType, sex: formSex, color: formColor || nextColor() };
       state.profiles.push(np);
       state.trip.travelerIds.push(np.id);
     }

@@ -11,7 +11,7 @@ Packing List Rings builds a packing list for everyone on a trip. Add travelers a
 
 The app has three panels. On a phone they sit behind a sticky Travelers, Trip, and Pack switcher. On a screen wider than 900px they show together, with Travelers and Trip on the left and Pack on the right.
 
-**Travelers.** Save everyone who might come along once, each with a name, a type (adult, child, or infant), and one of eight colors. A new traveler joins the current trip automatically. Deleting someone who is on the trip asks first, then removes their items too.
+**Travelers.** Save everyone who might come along once, each with a name, a type (adult, child, or infant), male or female, and one of eight colors. A new traveler joins the current trip automatically. Deleting someone who is on the trip asks first, then removes their items too.
 
 **Trip.** Tap travelers in or out, choose departure and return dates, a climate (hot, mild, cold, wet), and a setting (beach, city, outdoors, business). Switch on International for passports, a power adapter, and local currency, and pick the hemisphere so the season is right: a July trip south of the equator is a winter trip. The panel shows the derived season and length, explains anything that blocks generation, and then generates the list.
 
@@ -19,7 +19,7 @@ The app has three panels. On a phone they sit behind a sticky Travelers, Trip, a
 
 ## Packing rules
 
-The catalog holds 70 items across clothes, toiletries, electronics, and documents. Each item can be limited by climate, setting, season, traveler type, and the international switch, and is either packed for each qualifying person or once as a shared item. Quantities scale with the trip: underwear and socks are one per night plus one (up to 8), shirts one per day (up to 7), pants and pajamas one per three days, and toiletries switch from travel size to full size after 5 nights. Infants get onesies, a sleep sack, and their own gear, while diapers, wipes, and bottles are listed once as shared.
+The catalog holds 77 items across clothes, toiletries, electronics, and documents. Each item can be limited by climate, setting, season, traveler type, male or female, and the international switch, and is either packed for each qualifying person or once as a shared item. Quantities scale with the trip: underwear and socks are one per night plus one (up to 8), shirts one per day (up to 7), pants and pajamas one per three days, and toiletries switch from travel size to full size after 5 nights. Women get items such as bras and feminine care products, men get shaving cream and ties for business trips, and infants get onesies, a sleep sack, and their own gear, while diapers, wipes, and bottles are listed once as shared.
 
 Regenerating rebuilds the list from the current trip settings. Packed checks and renamed items carry over for anything that stays on the list, and items you added yourself are kept.
 
