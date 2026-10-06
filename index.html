@@ -909,7 +909,7 @@ footer a:hover { text-decoration: underline; }
         var old = prev[e.id + '|' + owner];
         out.push({ id: uid(), src: e.id, name: old ? old.name : e.name, cat: e.cat, owner: owner, qty: q.qty, unit: unit, packed: old ? old.packed : false });
       };
-      if (e.own === 'shared') push('shared');
+      if (e.own === 'shared') push(travelers.length === 1 ? travelers[0].id : 'shared');
       else fits.forEach(function (p) { push(p.id); });
     });
     state.items.forEach(function (it) { if (it.src === 'custom') out.push(it); });
@@ -1079,7 +1079,8 @@ footer a:hover { text-decoration: underline; }
   function renderChips() {
     var box = $('filters');
     clearNode(box);
-    var opts = [{ v: 'all', label: 'Everyone', color: null }, { v: 'shared', label: 'Shared', color: SHARED_COLOR }];
+    var opts = [{ v: 'all', label: 'Everyone', color: null }];
+    if (!soloId()) opts.push({ v: 'shared', label: 'Shared', color: SHARED_COLOR });
     tripTravelers().forEach(function (p) { opts.push({ v: p.id, label: p.name, color: p.color }); });
     opts.forEach(function (o) {
       box.appendChild(h('button', { type: 'button', class: 'chip', 'data-filter': o.v, 'aria-pressed': String(state.ui.filter === o.v) }, [
@@ -1126,7 +1127,8 @@ footer a:hover { text-decoration: underline; }
     catOpts.push({ v: '__new', label: 'New category...' });
     fillSelect($('aCat'), catOpts);
     $('aNewCatWrap').hidden = $('aCat').value !== '__new';
-    var ownerOpts = [{ v: 'shared', label: 'Shared' }].concat(tripTravelers().map(function (p) { return { v: p.id, label: p.name }; }));
+    var ownerOpts = (soloId() ? [] : [{ v: 'shared', label: 'Shared' }]).concat(tripTravelers().map(function (p) { return { v: p.id, label: p.name }; }));
+    if (!ownerOpts.length) ownerOpts.push({ v: 'shared', label: 'Shared' });
     fillSelect($('aOwner'), ownerOpts);
 
     $('hidePacked').setAttribute('aria-pressed', String(!!state.ui.hidePacked));
@@ -1275,9 +1277,42 @@ footer a:hover { text-decoration: underline; }
   }
 
   // ---------- Orchestration ----------
+  // A trip with one traveler has nothing to share: shared items belong to that person.
+  // When the trip grows again, catalog items that are shared by nature return to Shared.
+  function soloId() {
+    var t = tripTravelers();
+    return t.length === 1 ? t[0].id : null;
+  }
+  var CATALOG_OWN = {};
+  CATALOG.forEach(function (e) { CATALOG_OWN[e.id] = e.own; });
+  function syncSolo() {
+    var travelers = tripTravelers();
+    if (!travelers.length) return;
+    if (travelers.length === 1) {
+      var solo = travelers[0].id;
+      state.items.forEach(function (it) { if (it.owner === 'shared') it.owner = solo; });
+      return;
+    }
+    var onTrip = state.trip.travelerIds;
+    var keep = [];
+    var sharedBySrc = {};
+    state.items.forEach(function (it) { if (it.owner === 'shared' && it.src !== 'custom') sharedBySrc[it.src] = it; });
+    state.items.forEach(function (it) {
+      if (it.src !== 'custom' && CATALOG_OWN[it.src] === 'shared' && it.owner !== 'shared' && onTrip.indexOf(it.owner) >= 0) {
+        var twin = sharedBySrc[it.src];
+        if (twin) { twin.packed = twin.packed || it.packed; twin.qty = Math.max(twin.qty, it.qty); return; }
+        it.owner = 'shared';
+        sharedBySrc[it.src] = it;
+      }
+      keep.push(it);
+    });
+    state.items = keep;
+  }
+
   function render() {
+    syncSolo();
     var f = state.ui.filter;
-    if (f !== 'all' && f !== 'shared' && state.trip.travelerIds.indexOf(f) < 0) state.ui.filter = 'all';
+    if ((f === 'shared' && soloId()) || (f !== 'all' && f !== 'shared' && state.trip.travelerIds.indexOf(f) < 0)) state.ui.filter = 'all';
     $('main').setAttribute('data-tab', activeTab);
     Array.prototype.forEach.call(document.querySelectorAll('#switcher button'), function (b) {
       b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === activeTab));

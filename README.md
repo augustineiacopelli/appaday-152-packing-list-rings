@@ -21,6 +21,8 @@ The app has three panels. On a phone they sit behind a sticky Travelers, Trip, a
 
 The catalog holds 77 items across clothes, toiletries, electronics, and documents. Each item can be limited by climate, setting, season, traveler type, male or female, and the international switch, and is either packed for each qualifying person or once as a shared item. Quantities scale with the trip: underwear and socks are one per night plus one (up to 8), shirts one per day (up to 7), pants and pajamas one per three days, and toiletries switch from travel size to full size after 5 nights. Women get items such as bras and feminine care products, men get shaving cream and ties for business trips, and infants get onesies, a sleep sack, and their own gear, while diapers, wipes, and bottles are listed once as shared.
 
+On a trip with only one traveler there is nothing to share, so shared items such as toiletries, chargers, and documents are assigned to that person, and the Shared filter and ring step aside. Add a second traveler and those items move back to Shared, keeping their packed checks.
+
 Regenerating rebuilds the list from the current trip settings. Packed checks and renamed items carry over for anything that stays on the list, and items you added yourself are kept.
 
 ## Printing
