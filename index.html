@@ -378,7 +378,14 @@ footer a:hover { text-decoration: underline; }
 }
 .sheet h2 { font-size: 1.2rem; margin-bottom: 0.4rem; }
 .sheet p { margin: 0 0 1.1rem; color: var(--muted); font-size: 0.93rem; }
-.sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.sheet-actions { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0.6rem; }
+.transfer { margin-top: 0.9rem; }
+.transfer h3 { font-size: 1rem; margin-bottom: 0.3rem; }
+.transfer .hint { margin-bottom: 0.8rem; }
+.row-in { display: flex; gap: 0.5rem; }
+.row-in input { flex: 1; min-width: 0; }
+.msg.ok { background: var(--success-dim); color: var(--success); margin: 0.6rem 0 0; }
+.xlink { margin-top: 0.6rem; font-size: 0.85rem !important; color: var(--muted); }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sheetIn { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
 
@@ -440,6 +447,21 @@ footer a:hover { text-decoration: underline; }
         <button class="btn ghost" id="tCancel" type="button" hidden>Cancel</button>
       </div>
     </form>
+    <div class="card transfer" id="transfer">
+      <h3>Move to another device</h3>
+      <p class="hint">Send your travelers, trip, and list as a link. Open it on the other phone or computer to replace that list or merge with it.</p>
+      <button class="btn ghost wide" type="button" id="exportBtn">Share list link</button>
+      <p class="msg ok" id="xMsg" role="status" hidden></p>
+      <input type="text" class="xlink" id="xLink" readonly hidden aria-label="Transfer link">
+      <div class="field" style="margin: 0.9rem 0 0;">
+        <span id="lImport">Import</span>
+        <div class="row-in">
+          <input type="text" id="xIn" autocomplete="off" placeholder="Paste a link or code" aria-labelledby="lImport">
+          <button class="btn primary" type="button" id="importBtn">Import</button>
+        </div>
+      </div>
+      <p class="err" id="xErr" role="alert" style="margin: 0.6rem 0 0;"></p>
+    </div>
   </section>
 
   <section class="panel" id="p-trip" aria-labelledby="hTrip">
@@ -546,6 +568,7 @@ footer a:hover { text-decoration: underline; }
     <p id="mBody"></p>
     <div class="sheet-actions">
       <button class="btn ghost" type="button" id="mCancel">Cancel</button>
+      <button class="btn ghost" type="button" id="mAlt" hidden>Merge</button>
       <button class="btn danger" type="button" id="mOk">OK</button>
     </div>
   </div>
@@ -732,10 +755,12 @@ footer a:hover { text-decoration: underline; }
     var raw = null;
     try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
     if (!raw) return defaultState();
+    try { return normalize(JSON.parse(raw)) || defaultState(); } catch (e) { return defaultState(); }
+  }
+  function normalize(s) {
     try {
-      var s = JSON.parse(raw);
       if (!s || s.v !== 1 || !Array.isArray(s.profiles) || !Array.isArray(s.items) || !s.trip || typeof s.trip !== 'object') {
-        return defaultState();
+        return null;
       }
       var d = defaultState();
       d.profiles = s.profiles.filter(function (p) { return p && typeof p.id === 'string' && typeof p.name === 'string' && TYPE_LABEL[p.type]; });
@@ -758,7 +783,7 @@ footer a:hover { text-decoration: underline; }
       }
       return d;
     } catch (e) {
-      return defaultState();
+      return null;
     }
   }
   function save() {
@@ -906,10 +931,13 @@ footer a:hover { text-decoration: underline; }
   var modal = $('modal');
   var mOk = $('mOk');
   var mCancel = $('mCancel');
+  var mAlt = $('mAlt');
   var modalResolve = null;
   var modalReturn = null;
-  function ask(title, body, okLabel) {
+  function ask(title, body, okLabel, altLabel) {
     return new Promise(function (resolve) {
+      mAlt.hidden = !altLabel;
+      mAlt.textContent = altLabel || '';
       if (modalResolve) { var r = modalResolve; modalResolve = null; r(false); }
       modalReturn = document.activeElement;
       $('mTitle').textContent = title;
@@ -931,13 +959,16 @@ footer a:hover { text-decoration: underline; }
   }
   mOk.addEventListener('click', function () { closeModal(true); });
   mCancel.addEventListener('click', function () { closeModal(false); });
+  mAlt.addEventListener('click', function () { closeModal('alt'); });
   modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(false); });
   document.addEventListener('keydown', function (e) {
     if (!modalResolve) return;
     if (e.key === 'Escape') { e.preventDefault(); closeModal(false); }
     else if (e.key === 'Tab') {
       e.preventDefault();
-      (document.activeElement === mOk ? mCancel : mOk).focus();
+      var btns = [mCancel, mAlt, mOk].filter(function (b) { return !b.hidden; });
+      var at = btns.indexOf(document.activeElement);
+      btns[(at + (e.shiftKey ? btns.length - 1 : 1)) % btns.length].focus();
     }
   });
 
@@ -1536,7 +1567,200 @@ footer a:hover { text-decoration: underline; }
     if (b) go(b.getAttribute('data-go'));
   });
 
+  // ---------- Transfer between devices ----------
+  var HASH_KEY = '#import=';
+  function bytesToB64url(bytes) {
+    var bin = '';
+    for (var i = 0; i < bytes.length; i += 8192) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    }
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64urlToBytes(str) {
+    var b = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (b.length % 4) b += '=';
+    var bin = atob(b);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function canCompress() {
+    return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+  }
+  function pipeBytes(bytes, stream) {
+    return new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer().then(function (buf) { return new Uint8Array(buf); });
+  }
+  function encodeState() {
+    var payload = { v: 1, profiles: state.profiles, trip: state.trip, items: state.items, customCats: state.customCats };
+    var bytes = new TextEncoder().encode(JSON.stringify(payload));
+    if (canCompress()) {
+      return pipeBytes(bytes, new CompressionStream('deflate-raw'))
+        .then(function (z) { return 'z' + bytesToB64url(z); })
+        .catch(function () { return 'j' + bytesToB64url(bytes); });
+    }
+    return Promise.resolve('j' + bytesToB64url(bytes));
+  }
+  function decodeCode(code) {
+    return new Promise(function (resolve, reject) {
+      var kind = code.charAt(0);
+      var bytes = b64urlToBytes(code.slice(1));
+      if (kind === 'j') resolve(bytes);
+      else if (kind === 'z') {
+        if (!canCompress()) { reject(new Error('This browser cannot open compressed codes.')); return; }
+        pipeBytes(bytes, new DecompressionStream('deflate-raw')).then(resolve, reject);
+      } else reject(new Error('Unknown code'));
+    }).then(function (b) {
+      var obj = normalize(JSON.parse(new TextDecoder().decode(b)));
+      if (!obj) throw new Error('Not a Packing List Rings code');
+      return obj;
+    });
+  }
+  function extractCode(text) {
+    var t = (text || '').trim();
+    var at = t.indexOf(HASH_KEY);
+    if (at >= 0) t = t.slice(at + HASH_KEY.length);
+    t = t.replace(/\s+/g, '');
+    return /^[zj][A-Za-z0-9_-]+$/.test(t) ? t : '';
+  }
+  function linkFor(code) {
+    return location.origin + location.pathname + HASH_KEY + code;
+  }
+  function showLink(link, msg) {
+    $('xMsg').textContent = msg;
+    $('xMsg').hidden = false;
+    $('xLink').value = link;
+    $('xLink').hidden = false;
+  }
+  $('exportBtn').addEventListener('click', function () {
+    $('xErr').textContent = '';
+    encodeState().then(function (code) {
+      var link = linkFor(code);
+      if (navigator.share) {
+        navigator.share({ title: 'Packing List Rings', text: 'Open this link to load our packing list.', url: link })
+          .then(function () { showLink(link, 'Link shared. Open it on the other device.'); })
+          .catch(function (err) {
+            if (err && err.name === 'AbortError') return;
+            copyOrShow(link);
+          });
+      } else {
+        copyOrShow(link);
+      }
+    }).catch(function () { $('xErr').textContent = 'Could not build the link on this browser.'; });
+  });
+  function copyOrShow(link) {
+    var done = function () { showLink(link, 'Link copied. Paste it into a text or email to the other device.'); };
+    var manual = function () {
+      showLink(link, 'Copy this link and send it to the other device.');
+      $('xLink').focus();
+      $('xLink').select();
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, manual);
+    else manual();
+  }
+  $('xLink').addEventListener('focus', function () { $('xLink').select(); });
+
+  function mergeIn(inc) {
+    var profMap = {};
+    inc.profiles.forEach(function (p) {
+      var hit = findProfile(p.id) || state.profiles.filter(function (q) {
+        return q.name.toLowerCase() === p.name.toLowerCase() && q.type === p.type;
+      })[0];
+      if (hit) {
+        if (!hit.sex && p.sex) hit.sex = p.sex;
+        profMap[p.id] = hit.id;
+      } else {
+        var np = { id: findProfile(p.id) ? uid() : p.id, name: p.name, type: p.type, sex: p.sex || '', color: p.color || nextColor() };
+        state.profiles.push(np);
+        profMap[p.id] = np.id;
+      }
+    });
+    inc.trip.travelerIds.forEach(function (id) {
+      var mid = profMap[id];
+      if (mid && state.trip.travelerIds.indexOf(mid) < 0) state.trip.travelerIds.push(mid);
+    });
+    var order = state.profiles.map(function (p) { return p.id; });
+    state.trip.travelerIds.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
+    var catMap = {};
+    inc.customCats.forEach(function (c) {
+      var hit = catByName(c.name);
+      if (hit) { catMap[c.id] = hit; return; }
+      var nc = { id: customCat(c.id) ? 'x' + uid() : c.id, name: c.name };
+      state.customCats.push(nc);
+      catMap[c.id] = nc.id;
+    });
+    var added = 0;
+    inc.items.forEach(function (it) {
+      var owner = it.owner === 'shared' ? 'shared' : profMap[it.owner];
+      if (!owner) return;
+      var cat = catMap[it.cat] || it.cat;
+      if (CAT_ORDER.indexOf(cat) < 0 && !customCat(cat)) return;
+      var hit = state.items.filter(function (x) {
+        if (x.owner !== owner || x.cat !== cat) return false;
+        if (it.src !== 'custom' && x.src === it.src) return true;
+        return x.name.toLowerCase() === it.name.toLowerCase();
+      })[0];
+      if (hit) {
+        hit.packed = hit.packed || it.packed;
+        hit.qty = Math.max(hit.qty, it.qty);
+      } else {
+        state.items.push({ id: uid(), src: it.src || 'custom', name: it.name, cat: cat, owner: owner, qty: it.qty, unit: it.unit || '', packed: it.packed });
+        added++;
+      }
+    });
+    return added;
+  }
+  function runImport(code, fromLink) {
+    $('xErr').textContent = '';
+    return decodeCode(code).then(function (inc) {
+      var summary = plural(inc.profiles.length, 'traveler') + ' and ' + plural(inc.items.length, 'item');
+      var empty = !state.profiles.length && !state.items.length;
+      var question = empty
+        ? ask('Import this packing list?', 'It has ' + summary + '.', 'Import')
+        : ask('Import a packing list?', 'It has ' + summary + '. Replace swaps this device\'s travelers, trip, and list for the imported ones. Merge keeps what is here, adds new travelers and items, and combines matching items, keeping any packed check.', 'Replace', 'Merge');
+      return question.then(function (choice) {
+        if (!choice) return;
+        var verb;
+        if (choice === 'alt') {
+          var n = mergeIn(inc);
+          verb = 'Merged. ' + plural(n, 'new item') + ' added.';
+        } else {
+          inc.ui = { filter: 'all', hidePacked: state.ui.hidePacked };
+          state = inc;
+          verb = 'Imported ' + summary + '.';
+        }
+        resetForm();
+        activeTab = state.items.length ? 'pack' : (state.profiles.length ? 'trip' : 'travelers');
+        $('xIn').value = '';
+        commit();
+        $('xMsg').textContent = verb;
+        $('xMsg').hidden = false;
+        $('xLink').hidden = true;
+      });
+    }).catch(function () {
+      $('xErr').textContent = fromLink
+        ? 'That import link could not be read. Ask for a fresh link.'
+        : 'That code could not be read. Paste the whole link or code.';
+      if (fromLink) go('travelers');
+    });
+  }
+  $('importBtn').addEventListener('click', function () {
+    var code = extractCode($('xIn').value);
+    if (!code) { $('xErr').textContent = 'Paste the link or code from the other device first.'; $('xIn').focus(); return; }
+    runImport(code, false);
+  });
+  $('xIn').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); $('importBtn').click(); }
+  });
+  function checkHash() {
+    if (location.hash.indexOf(HASH_KEY) !== 0) return;
+    var code = extractCode(location.hash);
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ignore */ }
+    if (code) runImport(code, true);
+  }
+  window.addEventListener('hashchange', checkHash);
+
   render();
+  checkHash();
 })();
 </script>
 </body>

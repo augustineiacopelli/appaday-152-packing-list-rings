@@ -23,9 +23,13 @@ The catalog holds 77 items across clothes, toiletries, electronics, and document
 
 Regenerating rebuilds the list from the current trip settings. Packed checks and renamed items carry over for anything that stays on the list, and items you added yourself are kept.
 
+## Moving a list to another device
+
+Under Travelers, **Share list link** packs the travelers, trip, and list (packed checks and your own items included) into a link and opens the phone's share sheet, or copies the link where there is no share sheet. Open the link on the other phone or computer, or paste the link or its code into the Import field there. A device with nothing on it simply imports. A device that already has a list asks whether to **Replace** it with the imported one or **Merge**, which keeps what is there, adds new travelers, items, and categories, matches travelers by name and type, and combines matching items so a packed check on either device stays checked. A damaged or partial code is rejected without touching the current list.
+
 ## Data and privacy
 
-Everything is stored in your browser's localStorage under `appaday152_v1`. Nothing is sent anywhere. The only network request is for Google Fonts.
+Everything is stored in your browser's localStorage under `appaday152_v1`. The transfer link carries the list after the # in the address, a part of a URL that browsers never send to a server, so the list travels only through whatever you send the link with. The only network request is for Google Fonts.
 
 ## Built with
 
