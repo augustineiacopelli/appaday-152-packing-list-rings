@@ -1,2 +1,36 @@
-# appaday-152-packing-list-rings
+# 152 Packing List Rings
+
+**AppADay No. 152** | Category: Data Viz (D) | Shipped October 6, 2026
+
+**Live app:** https://augustineiacopelli.github.io/appaday-152-packing-list-rings/
+**Portfolio:** https://augustineiacopelli.github.io/appaday/
+
 Packing List Rings builds a packing list for everyone on a trip. Add travelers as adults, kids, or infants, set dates, climate, and setting, and it generates items per person with quantities scaled to trip length. Animated progress rings track each category and traveler until everything is packed.
+
+## How it works
+
+The app has three panels. On a phone they sit behind a sticky Travelers, Trip, and Pack switcher. On a screen wider than 900px they show together, with Travelers and Trip on the left and Pack on the right.
+
+**Travelers.** Save everyone who might come along once, each with a name, a type (adult, child, or infant), and one of eight colors. A new traveler joins the current trip automatically. Deleting someone who is on the trip asks first, then removes their items too.
+
+**Trip.** Tap travelers in or out, choose departure and return dates, a climate (hot, mild, cold, wet), and a setting (beach, city, outdoors, business). Switch on International for passports, a power adapter, and local currency, and pick the hemisphere so the season is right: a July trip south of the equator is a winter trip. The panel shows the derived season and length, explains anything that blocks generation, and then generates the list.
+
+**Pack.** A large ring shows overall progress, smaller rings show each traveler and the shared items, and colored rings show each category. Rings animate as items are checked, turn green with a checkmark and a single pulse at 100 percent, and disappear when their group empties. Filter by Everyone, Shared, or one traveler, and the list and rings follow. Tap a name to rename it, use the stepper to change a quantity (stepping below one removes the item), add your own items in new categories, hide packed items, uncheck everything in one tap, or regenerate.
+
+## Packing rules
+
+The catalog holds 70 items across clothes, toiletries, electronics, and documents. Each item can be limited by climate, setting, season, traveler type, and the international switch, and is either packed for each qualifying person or once as a shared item. Quantities scale with the trip: underwear and socks are one per night plus one (up to 8), shirts one per day (up to 7), pants and pajamas one per three days, and toiletries switch from travel size to full size after 5 nights. Infants get onesies, a sleep sack, and their own gear, while diapers, wipes, and bottles are listed once as shared.
+
+Regenerating rebuilds the list from the current trip settings. Packed checks and renamed items carry over for anything that stays on the list, and items you added yourself are kept.
+
+## Data and privacy
+
+Everything is stored in your browser's localStorage under `appaday152_v1`. Nothing is sent anywhere. The only network request is for Google Fonts.
+
+## Built with
+
+A single `index.html` of HTML, CSS, and vanilla JavaScript with SVG progress rings. No framework, no build step, no dependencies. It works at 375px and up, uses 44px minimum tap targets, respects reduced motion, and opens full screen with its own icon when saved to a phone's home screen.
+
+---
+
+Part of [AppADay](https://augustineiacopelli.github.io/appaday/), one complete web app shipped every day.
