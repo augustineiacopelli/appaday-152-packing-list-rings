@@ -303,7 +303,33 @@ svg.ico { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: rou
 .ring-count { font-size: 0.74rem; color: var(--muted); }
 
 .toolbar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 0.9rem 0; }
-@media (min-width: 560px) { .toolbar { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 560px) { .toolbar { grid-template-columns: repeat(5, 1fr); } }
+@media (max-width: 559px) { .toolbar #printBtn { grid-column: 1 / -1; } }
+#printSheet { display: none; }
+@media print {
+  @page { margin: 14mm 12mm; }
+  html, body { background: #fff !important; color: #111 !important; }
+  body { display: block; min-height: 0; padding: 0; font-size: 10.5pt; }
+  body > *:not(#printSheet) { display: none !important; }
+  #printSheet { display: block; font-family: var(--text); color: #111; }
+  .p-head { border-bottom: 2pt solid #111; padding-bottom: 6pt; margin-bottom: 10pt; }
+  .p-head h1 { font-family: var(--display); font-size: 20pt; color: #111; }
+  .p-meta { margin: 3pt 0 0; font-size: 10pt; color: #333; }
+  .p-section { break-before: page; }
+  .p-section:first-of-type { break-before: auto; }
+  .p-section > h2 { font-family: var(--display); font-size: 15pt; margin: 0 0 6pt; color: #111; }
+  .p-cols { columns: 2; column-gap: 10mm; }
+  .p-group { margin: 0 0 9pt; }
+  .p-group h3 { font-family: var(--display); font-size: 11.5pt; margin: 0 0 3pt; padding-bottom: 2pt; border-bottom: 0.75pt solid #999; break-after: avoid; color: #111; }
+  .p-group ul { list-style: none; margin: 0; padding: 0; }
+  .p-group li { display: flex; align-items: baseline; gap: 6pt; padding: 2.5pt 0; break-inside: avoid; border-bottom: 0.5pt dotted #bbb; }
+  .p-box { flex: none; width: 9pt; height: 9pt; border: 1.1pt solid #111; border-radius: 1.5pt; position: relative; top: 1pt; }
+  .p-box.on::after { content: "\2713"; position: absolute; left: 0.5pt; top: -3.5pt; font-size: 10pt; font-weight: 700; }
+  .p-name { flex: 1; }
+  .p-qty { font-weight: 600; }
+  .p-sub { color: #555; font-size: 8.5pt; }
+  .p-foot { margin-top: 12pt; font-size: 8pt; color: #666; }
+}
 .toolbar .btn { padding: 0 0.6rem; font-size: 0.88rem; }
 .toolbar .btn[aria-pressed="true"], .toolbar .btn[aria-expanded="true"] { border-color: var(--gold-hi); background: var(--gold-dim); color: var(--gold-hi); }
 .add-form { margin-bottom: 0.9rem; }
@@ -540,6 +566,7 @@ footer a:hover { text-decoration: underline; }
         <button class="btn ghost" type="button" id="uncheck">Uncheck all</button>
         <button class="btn ghost" type="button" id="addToggle" aria-expanded="false" aria-controls="aForm">Add item</button>
         <button class="btn ghost" type="button" id="regen">Regenerate</button>
+        <button class="btn ghost" type="button" id="printBtn">Print</button>
       </div>
       <form class="card form add-form" id="aForm" novalidate hidden>
         <h3>Add an item</h3>
@@ -561,6 +588,8 @@ footer a:hover { text-decoration: underline; }
 <footer>
   AppADay No. 152 &middot; <a href="https://augustineiacopelli.github.io/appaday/">Back to the portfolio</a>
 </footer>
+
+<div id="printSheet" aria-hidden="true"></div>
 
 <div class="overlay" id="modal" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mTitle" aria-describedby="mBody">
@@ -1103,6 +1132,7 @@ footer a:hover { text-decoration: underline; }
     $('hidePacked').setAttribute('aria-pressed', String(!!state.ui.hidePacked));
     var items = filteredItems();
     $('uncheck').disabled = !items.some(function (it) { return it.packed; });
+    $('printBtn').disabled = !items.length;
 
     var list = $('list');
     clearNode(list);
@@ -1758,6 +1788,73 @@ footer a:hover { text-decoration: underline; }
     if (code) runImport(code, true);
   }
   window.addEventListener('hashchange', checkHash);
+
+  // ---------- Print ----------
+  function fmtDate(str) {
+    var d = parseLocalDate(str);
+    return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  }
+  function printRow(it, showOwner) {
+    var sub = [];
+    if (showOwner) sub.push(ownerInfo(it.owner).name);
+    if (it.unit) sub.push(it.unit);
+    return h('li', null, [
+      h('span', { class: 'p-box' + (it.packed ? ' on' : '') }),
+      h('span', { class: 'p-name' }, [it.name, sub.length ? h('span', { class: 'p-sub', text: '  ' + sub.join(', ') }) : null]),
+      it.qty > 1 ? h('span', { class: 'p-qty', text: 'x' + it.qty }) : null
+    ]);
+  }
+  function printGroups(items, showOwner) {
+    var wrap = h('div', { class: 'p-cols' });
+    allCats().forEach(function (cid) {
+      var gi = items.filter(function (it) { return it.cat === cid; });
+      if (!gi.length) return;
+      var ul = h('ul');
+      gi.forEach(function (it) { ul.appendChild(printRow(it, showOwner)); });
+      wrap.appendChild(h('div', { class: 'p-group' }, [h('h3', { text: catLabel(cid) + ' (' + gi.length + ')' }), ul]));
+    });
+    return wrap;
+  }
+  function buildPrint(mode) {
+    var sheet = $('printSheet');
+    clearNode(sheet);
+    var t = state.trip;
+    var tl = tripLength();
+    var bits = [];
+    if (tl) bits.push(fmtDate(t.depart) + ' to ' + fmtDate(t.ret), plural(tl.nights, 'night'));
+    bits.push(cap(t.climate), cap(t.setting));
+    if (t.international) bits.push('International');
+    var items = filteredItems();
+    var who = tripTravelers().map(function (p) { return p.name; }).join(', ');
+    sheet.appendChild(h('div', { class: 'p-head' }, [
+      h('h1', { text: 'Packing List' + (state.ui.filter !== 'all' ? ': ' + filterLabel() : '') }),
+      h('p', { class: 'p-meta', text: bits.join('  |  ') }),
+      who ? h('p', { class: 'p-meta', text: 'Travelers: ' + who }) : null
+    ]));
+    if (mode === 'person') {
+      var owners = tripTravelers().map(function (p) { return p.id; }).concat(['shared']);
+      owners.forEach(function (o) {
+        var oi = items.filter(function (it) { return it.owner === o; });
+        if (!oi.length) return;
+        sheet.appendChild(h('section', { class: 'p-section' }, [
+          h('h2', { text: ownerInfo(o).name + (o === 'shared' ? ' items' : '') + ' (' + oi.length + ')' }),
+          printGroups(oi, false)
+        ]));
+      });
+    } else {
+      sheet.appendChild(h('section', { class: 'p-section' }, [printGroups(items, true)]));
+    }
+    sheet.appendChild(h('p', { class: 'p-foot', text: 'Printed from Packing List Rings, AppADay No. 152' }));
+  }
+  $('printBtn').addEventListener('click', function () {
+    if (!filteredItems().length) return;
+    ask('Print the packing list?', 'By category prints one combined checklist. By person starts each traveler, and the shared items, on a new page so everyone can check off their own bag.', 'By category', 'By person')
+      .then(function (choice) {
+        if (!choice) return;
+        buildPrint(choice === 'alt' ? 'person' : 'category');
+        setTimeout(function () { window.print(); }, 60);
+      });
+  });
 
   render();
   checkHash();
